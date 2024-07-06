@@ -4,6 +4,7 @@ import { User } from "../entity/User";
 import { PasskeyChallenge } from "../entity/PasskeyChallenge";
 import base64url from "base64url";
 import { Passkey } from "../entity/Passkey";
+import { createAccessToken } from "./token";
 
 async function getRegistrationOptions(userId: string) {
     const user = await User.findOneOrFail({ where: { id: userId } })
@@ -82,7 +83,6 @@ const verifyRegistration = async (userId: string, credential: RegistrationRespon
 }
 
 async function getAuthenticationOptions() {
-
     const options = await generateAuthenticationOptions({
         rpID: process.env.WEBAUTHN_RP_ID!!,
         timeout: 1000 * 60 * 5,
@@ -130,7 +130,9 @@ async function verifyAuthentication(
     await PasskeyChallenge.remove(challengeRecord)
     const user = User.find({ where: { id: userCredential.appUserId } })
 
-    return { user, verified }
+    const token = createAccessToken(userCredential.appUserId)
+
+    return { user, verified, token }
 }
 
 async function getUserCredentials(userId: string) {

@@ -4,7 +4,9 @@ import * as bodyParser from 'body-parser';
 import { AppDataSource } from "./data-source"
 import PasskeyService from './services/passkey';
 import SignUpService from './services/sign-up';
-
+import jwt from 'jsonwebtoken'
+import { createAccessToken } from './services/token';
+import UserService from './services/user'
 // For env File 
 dotenv.config();
 
@@ -19,6 +21,26 @@ const checkNodeVersion = (version: number) => {
 };
 
 checkNodeVersion(20)
+
+// @ts-ignore
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if (token == null) return res.sendStatus(401)
+
+  jwt.verify(token, process.env.JWT_SECRET as string, (err: any, payload: any) => {
+    console.log(err)
+
+    if (err) return res.sendStatus(403)
+
+    console.log({ payload })
+
+    req.user = payload
+
+    next()
+  })
+}
 
 const app: Application = express();
 const port = process.env.PORT || 8000;
@@ -44,9 +66,10 @@ app.get('/.well-known/apple-app-site-association', (req: Request, res: Response)
     res.status(200).json(json)
 })
 
-app.get('/passkey-registration-options', async (req: Request, res: Response) => {
-    const { userId } = req.query
-    const options = await PasskeyService.getRegistrationOptions(userId as string)
+app.get('/passkey-registration-options', authenticateToken, async (req: Request, res: Response) => {
+    // @ts-ignore
+    const user = req.user
+    const options = await PasskeyService.getRegistrationOptions(user.id)
     return res.status(200).json(options)
 })
 
@@ -55,28 +78,30 @@ app.get('/passkey-authentication-options', async (req: Request, res: Response) =
     return res.status(200).json(options)
 })
 
-app.get('/passkeys', async (req: Request, res: Response) => {
-    console.log({ userId: req.params })
-    const credentials = await PasskeyService.getUserCredentials(req.query.userId as string)
-    console.log({ credentials })
+app.get('/passkeys', authenticateToken, async (req: Request, res: Response) => {
+    // @ts-ignore
+    const user = req.user
+    const credentials = await PasskeyService.getUserCredentials(user.id as string)
     return res.status(200).json(credentials)
 })
 
 app.post('/verify-passkey-authentication', async (req: Request, res: Response) => {
   const { credentials, challenge } = req.body
 
-  const { user, verified } = await PasskeyService.verifyAuthentication(credentials, challenge)
+  const { user, verified, token } = await PasskeyService.verifyAuthentication(credentials, challenge)
 
   if (!verified) {
     return res.status(401).send()
   }
 
-  return res.status(200).json(user)
+  return res.status(200).json({ ...user, token })
 })
 
-app.post('/verify-passkey-registration', async (req: Request, res: Response) => {
-    const { credentials, challenge, userId } = req.body
-    const { verified, passkey } = await PasskeyService.verifyRegistration(userId, credentials, challenge)
+app.post('/verify-passkey-registration', authenticateToken, async (req: Request, res: Response) => {
+    // @ts-ignore
+    const user = req.user
+    const { credentials, challenge } = req.body
+    const { verified, passkey } = await PasskeyService.verifyRegistration(user.id, credentials, challenge)
 
     if (!verified) {
         return res.status(401).send()
@@ -92,9 +117,17 @@ app.post('/signup', async (req: Request, res: Response) => {
 
 app.post('/verify-email', async (req: Request, res: Response) => {
   const { email, code } = req.body
-  const verified = await SignUpService.verifyUserEmail(email, code)
+  const user = await SignUpService.verifyUserEmail(email, code)
 
-  return res.status(200).send()
+  const token = createAccessToken(user.id)
+  return res.status(200).json({ ...user, token })
+})
+
+app.get('/user', authenticateToken, async (req: Request, res: Response) => {
+  // @ts-ignore
+  const reqUser = req.user
+  const user = await UserService.getUserById(reqUser.id)
+  return res.status(200).json(user)
 })
 
 app.listen(port, () => {

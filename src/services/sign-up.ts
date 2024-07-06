@@ -50,6 +50,7 @@ const verifyUserEmail = async (email: string, code: string) => {
 
     user.verified = true
     await user.save()
+    return user
 }
 
 export default {
