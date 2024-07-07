@@ -1,5 +1,11 @@
 import { EmailVerificationCode } from "../entity/EmailVerificationCode"
 import { User } from "../entity/User"
+import email from "./email"
+
+
+async function sendUserVerificationEmail(user: User, code: string) {
+    return email.sendEmail(user.email, 'UBALLET - Verify your email', `Your verification code is: ${code}`)
+}
 
 async function createEmailVerificationCode(userId: string): Promise<EmailVerificationCode> {
     const verificationCode = new EmailVerificationCode()
@@ -35,6 +41,10 @@ async function signup(email: string): Promise<{ user: User }> {
     await user.save()
 
     const verificationCode = await createEmailVerificationCode(user.id)
+
+    sendUserVerificationEmail(user, verificationCode.code).catch(err => {
+        console.error(err)
+    })
 
     return { user }
 }
