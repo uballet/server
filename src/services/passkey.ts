@@ -128,7 +128,7 @@ async function verifyAuthentication(
     })
 
     await PasskeyChallenge.remove(challengeRecord)
-    const user = User.find({ where: { id: userCredential.appUserId } })
+    const user = await User.findOneOrFail({ where: { id: userCredential.appUserId } })
 
     const token = createAccessToken(userCredential.appUserId)
 
