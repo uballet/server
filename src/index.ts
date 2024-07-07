@@ -52,7 +52,22 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 app.get('/.well-known/assetlinks.json', (req: Request, res: Response) => {
-  res.send()
+  const json = [
+    {
+      "relation" : [
+        "delegate_permission/common.handle_all_urls",
+        "delegate_permission/common.get_login_creds"
+      ],
+      "target" : {
+        "namespace" : "android_app",
+        "package_name" : "com.uballet.wallet",
+        "sha256_cert_fingerprints" : [
+          process.env.ANDROID_SHA_HEX_VALUE
+        ]
+      }
+    }
+  ]
+  res.status(200).json(json)
 })
 
 app.get('/.well-known/apple-app-site-association', (req: Request, res: Response) => {
