@@ -14,7 +14,6 @@ async function createEmailVerificationCode(userId: string): Promise<EmailVerific
     verificationCode.expiresAt = new Date(Date.now() + 1000 * 60 * 30)
     verificationCode.userId = userId
 
-    console.log({ code : verificationCode.code })
     await verificationCode.save()
 
     return verificationCode

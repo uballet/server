@@ -7,8 +7,6 @@ const entities = path.join(__dirname, '../dist/entity/*.js')
 const migrations = path.join(__dirname, '../dist/migration/*.js')
 const subscribers = path.join(__dirname, '../dist/subscriber/*.js')
 
-console.log({ entities })
-
 export const AppDataSource = new DataSource({
     type: "postgres",
     host: "localhost",

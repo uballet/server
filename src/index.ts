@@ -7,6 +7,7 @@ import SignUpService from './services/sign-up';
 import jwt from 'jsonwebtoken'
 import { createAccessToken } from './services/token';
 import UserService from './services/user'
+import signIn from './services/sign-in';
 // For env File 
 dotenv.config();
 
@@ -30,11 +31,7 @@ function authenticateToken(req, res, next) {
   if (token == null) return res.sendStatus(401)
 
   jwt.verify(token, process.env.JWT_SECRET as string, (err: any, payload: any) => {
-    console.log(err)
-
     if (err) return res.sendStatus(403)
-
-    console.log({ payload })
 
     req.user = payload
 
@@ -136,6 +133,18 @@ app.post('/verify-email', async (req: Request, res: Response) => {
 
   const token = createAccessToken(user.id)
   return res.status(200).json({ ...user, token })
+})
+
+app.post('/email-sign-in', async (req: Request, res: Response) => {
+  const { email, targetPublicKey } = req.body
+  const user = await signIn.signInWithEmail({ email, targetPublicKey })
+  return res.status(200).send();
+})
+
+app.post('/complete-sign-in', async (req: Request, res: Response) => {
+  const { email, stampedEmail } = req.body
+  const { user, token } = await signIn.completeEmailSignIn({ email, stampedEmail })
+  res.status(200).send({ ...user, token })
 })
 
 app.get('/user', authenticateToken, async (req: Request, res: Response) => {
