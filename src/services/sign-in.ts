@@ -8,6 +8,8 @@ import { randomBytes } from '@noble/ciphers/webcrypto';
 import EmailService from './email'
 import { gcm } from '@noble/ciphers/aes';
 import { sha256 } from '@noble/hashes/sha256';
+import { createEmailVerificationCode } from "./sign-up";
+import { EmailVerificationCode } from "../entity/EmailVerificationCode";
 
 function encryptStamperValues({ secret, nonce }: { secret: Uint8Array, nonce: Uint8Array }) {
     const nonceHex = Buffer.from(nonce).toString('hex')
@@ -41,7 +43,23 @@ async function signInWithEmail({ email, targetPublicKey: targetPublicKeyBase64 }
     stamper.value = encryptStamperValues({ secret: sharedSecret, nonce })
 
     await stamper.save();
-    await EmailService.sendEmail(email, 'UBALLET - Sign In Code', `Sign In With the Following Code: ${pubKeyHex+nonceHex}`)
+    if (process.env.BUILD_ENV === 'testing') {
+        await EmailService.sendEmail(email, 'UBALLET - Sign In Code', `Sign In With the Following Code: ${pubKeyHex+nonceHex}`)
+    }
+}
+
+async function signInWithEmailSimpler({ email }: { email: string }) {
+    const user = await User.findOneOrFail({ where: { email } })
+
+    await createEmailVerificationCode(user.id, 'login')
+}
+
+async function completeSimplerEmailSignIn({ email, code }: { email: string, code: string }) {
+    const user = await User.findOneOrFail({ where: { email } })
+    await EmailVerificationCode.findOneOrFail({ where: { userId: user.id, code, type: 'login' } })
+
+    const token = createAccessToken(user.id)
+    return { user, token }
 }
 
 const completeEmailSignIn = async ({ email, stampedEmail }: { email: string, stampedEmail: string }) => {
@@ -66,5 +84,7 @@ const completeEmailSignIn = async ({ email, stampedEmail }: { email: string, sta
 
 export default {
     signInWithEmail,
-    completeEmailSignIn
+    signInWithEmailSimpler,
+    completeEmailSignIn,
+    completeSimplerEmailSignIn
 }

@@ -4,15 +4,20 @@ import email from "./email"
 
 
 async function sendUserVerificationEmail(user: User, code: string) {
-    return email.sendEmail(user.email, 'UBALLET - Verify your email', `Your verification code is: ${code}`)
+    if (process.env.BUILD_ENV === 'testing') {
+        return email.sendEmail(user.email, 'UBALLET - Verify your email', `Your verification code is: ${code}`)
+    }
+    console.log('Your verification code is: ', code)
 }
 
-async function createEmailVerificationCode(userId: string): Promise<EmailVerificationCode> {
+export async function createEmailVerificationCode(userId: string, type: string): Promise<EmailVerificationCode> {
     const verificationCode = new EmailVerificationCode()
 
-    verificationCode.code = Math.floor(Math.random() * 1000000).toString()
+    const code = Math.floor(Math.random() * 1000000).toString()
+    verificationCode.code = code.length < 6 ? '0' + code : code
     verificationCode.expiresAt = new Date(Date.now() + 1000 * 60 * 30)
     verificationCode.userId = userId
+    verificationCode.type = type
 
     await verificationCode.save()
 
@@ -28,7 +33,7 @@ async function signup(email: string): Promise<{ user: User }> {
     }
 
     if (existing && !existing.verified) {
-        await createEmailVerificationCode(existing.id)
+        await createEmailVerificationCode(existing.id, 'signup')
 
         return { user: existing }
     }
@@ -39,11 +44,8 @@ async function signup(email: string): Promise<{ user: User }> {
 
     await user.save()
 
-    const verificationCode = await createEmailVerificationCode(user.id)
-
-    sendUserVerificationEmail(user, verificationCode.code).catch(err => {
-        console.error(err)
-    })
+    const verificationCode = await createEmailVerificationCode(user.id, 'signup')
+    await sendUserVerificationEmail(user, verificationCode.code)
 
     return { user }
 }
@@ -51,7 +53,7 @@ async function signup(email: string): Promise<{ user: User }> {
 
 const verifyUserEmail = async (email: string, code: string) => {
     const user = await User.findOneOrFail({ where: { email } })
-    const verificationCode = await EmailVerificationCode.findOneOrFail({ where: { userId: user.id, code } })
+    const verificationCode = await EmailVerificationCode.findOneOrFail({ where: { userId: user.id, code, type: 'signup' } })
 
     if (verificationCode.expiresAt < new Date()) {
         throw new Error('Verification code expired')

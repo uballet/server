@@ -4,10 +4,11 @@ import * as bodyParser from 'body-parser';
 import { AppDataSource } from "./data-source"
 import PasskeyService from './services/passkey';
 import SignUpService from './services/sign-up';
-import jwt from 'jsonwebtoken'
 import { createAccessToken } from './services/token';
 import UserService from './services/user'
 import signIn from './services/sign-in';
+import { authenticateToken } from './jwt-authentication';
+import contactsRouter from './routes/contacts';
 // For env File 
 dotenv.config();
 
@@ -23,26 +24,11 @@ const checkNodeVersion = (version: number) => {
 
 checkNodeVersion(20)
 
-// @ts-ignore
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization']
-  const token = authHeader && authHeader.split(' ')[1]
-
-  if (token == null) return res.sendStatus(401)
-
-  jwt.verify(token, process.env.JWT_SECRET as string, (err: any, payload: any) => {
-    if (err) return res.sendStatus(403)
-
-    req.user = payload
-
-    next()
-  })
-}
-
 const app: Application = express();
 const port = process.env.PORT || 8000;
 
 app.use(bodyParser.json()); // <--- Here
+app.use('/contacts', authenticateToken, contactsRouter)
 
 app.get('/', (req: Request, res: Response) => {
   res.send('Welcome to Express & TypeScript Server');
@@ -137,13 +123,13 @@ app.post('/verify-email', async (req: Request, res: Response) => {
 
 app.post('/email-sign-in', async (req: Request, res: Response) => {
   const { email, targetPublicKey } = req.body
-  const user = await signIn.signInWithEmail({ email, targetPublicKey })
+  const user = await signIn.signInWithEmailSimpler({ email })
   return res.status(200).send();
 })
 
 app.post('/complete-sign-in', async (req: Request, res: Response) => {
-  const { email, stampedEmail } = req.body
-  const { user, token } = await signIn.completeEmailSignIn({ email, stampedEmail })
+  const { email, code } = req.body
+  const { user, token } = await signIn.completeSimplerEmailSignIn({ email, code })
   res.status(200).send({ ...user, token })
 })
 
