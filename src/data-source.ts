@@ -1,6 +1,8 @@
 import "reflect-metadata"
 import { DataSource } from "typeorm"
 import path = require("path")
+import { configDotenv } from "dotenv"
+configDotenv();
 
 const entities = path.join(__dirname, '../dist/entity/*.js')
 const migrations = path.join(__dirname, '../dist/migration/*.js')
